@@ -46,7 +46,7 @@ def is_fiber_at_boundary(coordinate, fiber_radius, rve_size_x, rve_size_y):
             y - fiber_radius < 0 or y + fiber_radius > rve_size_y)
 
 
-def generate_periodic_fibers(coordinate, fiber_radius, centers, periodic_shifts, upper_limit, lower_limit):
+def generate_periodic_fibers(coordinate, current_fiber_radius, centers, fiber_radii, periodic_shifts, upper_limit, lower_limit):
     """Generate periodic copies of a boundary fiber.
 
     Args:
@@ -67,7 +67,9 @@ def generate_periodic_fibers(coordinate, fiber_radius, centers, periodic_shifts,
 
         # Check if shifted fiber is within tolerance and doesn't overlap with other fibers
         if check_within_tolerance(shifted_coordinates, upper_limit, lower_limit, []):
-            if all(np.linalg.norm(np.array(shifted_coordinates) - np.array(existing_fiber)) >= 2 * fiber_radius for existing_fiber in centers):
+            if all(np.linalg.norm(np.array(shifted_coordinates) - np.array(existing_fiber)) >= (current_fiber_radius + existing_radius)
+                   for existing_fiber, existing_radius in zip(centers, fiber_radii)):
+            #if all(np.linalg.norm(np.array(shifted_coordinates) - np.array(existing_fiber)) >= (current_fiber_radius + existing_radius) for existing_fiber, existing_radius in zip(centers, fiber_radii)):
                 new_fibers.append(shifted_coordinates)
             else:
                 return []  # Overlap detected, abort periodic generation
@@ -91,10 +93,10 @@ def remove_fiber_with_periodicity(coordinates, fiber_centers, fiber_radii, perio
     for shift in periodic_shifts:
         fibers_to_remove.append([coordinates[0] + shift[0], coordinates[1] + shift[1]])
         
-    filtered = [(f, r) for f, r in zip(fiber_centers, fiber_radii) if all(not np.allclose(f, remove_fiber, atol=1e-6)for remove_fiber in fibers_to_remove)]
+    filtered = [(f, r) for f, r in zip(fiber_centers, fiber_radii) if all(not np.allclose(f, remove_fiber, atol=1e-3) for remove_fiber in fibers_to_remove)]
 
     # Remove all copies from fiber list
-    fiber_centers = [f for f in fiber_centers if all(not np.allclose(f, remove_fiber, atol = 1e-6) for remove_fiber in fibers_to_remove)]
+    fiber_centers = [item[0] for item in filtered]
     fiber_radii = [item[1]for item in filtered]
 
     return fiber_centers, fiber_radii
@@ -186,8 +188,8 @@ def RSE_algorithm(rve_size_x, rve_size_y,  fiber_radius, fiber_radius_min, fiber
     tolerance_upper = max(rve_size_x, rve_size_y) + periodic_boundary_buffer
 
     # Calculate distance range for new fibers
-    min_distance = distance_factors["min_distance"] * fiber_radius + 2 * fiber_radius
-    max_distance = distance_factors["max_distance"] * fiber_radius + 2 * fiber_radius
+    #min_distance = distance_factors["min_distance"] * fiber_radius 
+    #max_distance = distance_factors["max_distance"] * fiber_radius 
 
     fiber_centers = []
     fiber_types = []  # 'normal' = interior fiber, 'boundary' = at edge, 'periodic' = copy
@@ -200,7 +202,7 @@ def RSE_algorithm(rve_size_x, rve_size_y,  fiber_radius, fiber_radius_min, fiber
     fiber_radii.append(first_radius)
     
     if is_fiber_at_boundary(first_coordinate, first_radius, rve_size_x, rve_size_y):
-        new_fibers = generate_periodic_fibers(first_coordinate, first_radius, fiber_centers,
+        new_fibers = generate_periodic_fibers(first_coordinate,first_radius, fiber_centers, fiber_radii,
                                               periodic_shifts, tolerance_upper, tolerance_lower)
         
         fiber_types.append("boundary")
@@ -218,7 +220,12 @@ def RSE_algorithm(rve_size_x, rve_size_y,  fiber_radius, fiber_radius_min, fiber
     # Main RSE loop
     while fail_count < max_failed_attempts and fiber_count < max_fibers_count:
         # Select random existing fiber as seed
-        target_fiber = fiber_centers[rng.randint(0, virtual_fiber_count - 1)]
+        #target_fiber = fiber_centers[rng.randint(0, virtual_fiber_count - 1)]
+        target_index = rng.randint(0, virtual_fiber_count - 1)
+        target_fiber = fiber_centers[target_index]
+        target_radius = fiber_radii[target_index]
+        
+        
 
         trial = 0
         added_fiber = False
@@ -226,19 +233,23 @@ def RSE_algorithm(rve_size_x, rve_size_y,  fiber_radius, fiber_radius_min, fiber
         while trial < max_trials_per_fiber:
             # Generate random position around target fiber
             theta = rng.uniform(0, 2 * pi)
+            new_radius = rng.uniform(fiber_radius_min, fiber_radius_max)
+            min_distance = distance_factors["min_distance"] * target_radius + (target_radius + new_radius)
+            max_distance = distance_factors["max_distance"] * target_radius + (target_radius + new_radius)
+            
             distance = rng.uniform(min_distance, max_distance)
             new_coordinate = [target_fiber[0] + distance * cos(theta), target_fiber[1] + distance * sin(theta)]
-            new_radius = rng.uniform(fiber_radius_min, fiber_radius_max)
+            
 
             if not check_within_tolerance(new_coordinate, tolerance_upper, tolerance_lower, exclusion_zones):
                 trial += 1
                 continue
 
             # Check for overlaps with existing fibers
-            if all(np.linalg.norm(np.array(new_coordinate) - np.array(existing_fiber)) >= 2 * fiber_radius for existing_fiber in fiber_centers):
+            if all(np.linalg.norm(np.array(new_coordinate) - np.array(existing_fiber)) >= (new_radius + fiber_radii[i]) for i, existing_fiber in enumerate(fiber_centers)):
 
-                if is_fiber_at_boundary(new_coordinate, fiber_radius, rve_size_x, rve_size_y):
-                    new_fibers = generate_periodic_fibers(new_coordinate, new_radius, fiber_centers, periodic_shifts, 
+                if is_fiber_at_boundary(new_coordinate, new_radius, rve_size_x, rve_size_y):
+                    new_fibers = generate_periodic_fibers(new_coordinate,new_radius, fiber_centers, fiber_radii, periodic_shifts, 
                                                           tolerance_upper, tolerance_lower)
 
                     if new_fibers:
@@ -306,8 +317,9 @@ def RFR_algorithm(fiber_centers, fiber_radii, original_fibers, original_radii, t
             updated_original_fibers = [f for f in updated_original_fibers if not np.allclose(f, fiber_to_remove, atol = 1e-6)]
             updated_original_radii.pop(remove_index)
         else:
-            fiber_centers.remove(fiber_to_remove)
-            fiber_radii.remove(radius_to_remove)
+            global_index = next(i for i, f in enumerate(fiber_centers) if np.allclose(f, fiber_to_remove, atol=1e-3))
+            fiber_centers.pop(global_index)
+            fiber_radii.pop(global_index)
             updated_original_fibers.remove(fiber_to_remove)
             updated_original_radii.remove(radius_to_remove)
 
