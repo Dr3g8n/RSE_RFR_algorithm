@@ -75,7 +75,7 @@ def generate_periodic_fibers(coordinate, fiber_radius, centers, periodic_shifts,
     return new_fibers
 
 
-def remove_fiber_with_periodicity(coordinates, fiber_centers, periodic_shifts):
+def remove_fiber_with_periodicity(coordinates, fiber_centers, fiber_radii, periodic_shifts):
     """Remove a fiber and all its periodic copies.
 
     Args:
@@ -90,11 +90,14 @@ def remove_fiber_with_periodicity(coordinates, fiber_centers, periodic_shifts):
 
     for shift in periodic_shifts:
         fibers_to_remove.append([coordinates[0] + shift[0], coordinates[1] + shift[1]])
+        
+    filtered = [(f, r) for f, r in zip(fiber_centers, fiber_radii) if all(not np.allclose(f, remove_fiber, atol=1e-6)for remove_fiber in fibers_to_remove)]
 
     # Remove all copies from fiber list
     fiber_centers = [f for f in fiber_centers if all(not np.allclose(f, remove_fiber, atol = 1e-6) for remove_fiber in fibers_to_remove)]
+    fiber_radii = [item[1]for item in filtered]
 
-    return fiber_centers
+    return fiber_centers, fiber_radii
 
 
 def calculate_fiber_volume_fraction(fiber_count, fiber_radius, rve_size_x, rve_size_y):
@@ -119,10 +122,17 @@ def calculate_target_fiber_count(volume_fraction, fiber_radius, rve_size_x, rve_
     return int((volume_fraction * rve_area) / fiber_area)
 
 
+def generate_random_radius(fiber_radius_min, fiber_radius_max, rng, is_first=False):
+    """Generates a random radius within bounds."""
+    if is_first:
+        return (fiber_radius_min + fiber_radius_max) / 2.0
+    else:
+        return rng.uniform(fiber_radius_min, fiber_radius_max)
+
 # ================================================================
 # Input/Output Functions
 # ================================================================
-def save_to_csv(fiber_centers, fiber_radius, csv_dir, identifier, fiber_types = None):
+def save_to_csv(fiber_centers, fiber_radii, csv_dir, identifier, fiber_types = None):
     """Save fiber coordinates to CSV file.
 
     If ``fiber_types`` is given, an extra ``type`` column is written
@@ -141,7 +151,7 @@ def save_to_csv(fiber_centers, fiber_radius, csv_dir, identifier, fiber_types = 
             header.append("type")
         writer.writerow(header)
         for i, fiber in enumerate(fiber_centers):
-            row = [fiber[0], fiber[1], fiber_radius]
+            row = [fiber[0], fiber[1], fiber_radii[i]]
             if has_types:
                 row.append(fiber_types[i])
             writer.writerow(row)
@@ -150,7 +160,7 @@ def save_to_csv(fiber_centers, fiber_radius, csv_dir, identifier, fiber_types = 
 # ================================================================
 # Core Algorithms
 # ================================================================
-def RSE_algorithm(rve_size_x, rve_size_y,  fiber_radius, exclusion_zones, max_fibers_count, max_failed_attempts, 
+def RSE_algorithm(rve_size_x, rve_size_y,  fiber_radius, fiber_radius_min, fiber_radius_max, exclusion_zones, max_fibers_count, max_failed_attempts, 
                   max_trials_per_fiber, distance_factors, periodic_boundary_buffer, periodic_shifts, rng):
     """Generate initial fiber distribution using Random Sequential Expansion (RSE).
 
@@ -181,19 +191,23 @@ def RSE_algorithm(rve_size_x, rve_size_y,  fiber_radius, exclusion_zones, max_fi
 
     fiber_centers = []
     fiber_types = []  # 'normal' = interior fiber, 'boundary' = at edge, 'periodic' = copy
+    fiber_radii = []
 
     # Place first fiber randomly
     first_coordinate = [rng.uniform(lower_limit, rve_size_x), rng.uniform(lower_limit, rve_size_y)]
     fiber_centers.append(first_coordinate)
+    first_radius = rng.uniform(fiber_radius_min, fiber_radius_max)
+    fiber_radii.append(first_radius)
     
-    if is_fiber_at_boundary(first_coordinate, fiber_radius, rve_size_x, rve_size_y):
-        new_fibers = generate_periodic_fibers(first_coordinate, fiber_radius, fiber_centers,
+    if is_fiber_at_boundary(first_coordinate, first_radius, rve_size_x, rve_size_y):
+        new_fibers = generate_periodic_fibers(first_coordinate, first_radius, fiber_centers,
                                               periodic_shifts, tolerance_upper, tolerance_lower)
         
         fiber_types.append("boundary")
         for fiber in new_fibers:
             fiber_centers.append(fiber)
             fiber_types.append("periodic")
+            fiber_radii.append(first_radius)
     else:
         fiber_types.append("normal")
     
@@ -214,6 +228,7 @@ def RSE_algorithm(rve_size_x, rve_size_y,  fiber_radius, exclusion_zones, max_fi
             theta = rng.uniform(0, 2 * pi)
             distance = rng.uniform(min_distance, max_distance)
             new_coordinate = [target_fiber[0] + distance * cos(theta), target_fiber[1] + distance * sin(theta)]
+            new_radius = rng.uniform(fiber_radius_min, fiber_radius_max)
 
             if not check_within_tolerance(new_coordinate, tolerance_upper, tolerance_lower, exclusion_zones):
                 trial += 1
@@ -223,12 +238,13 @@ def RSE_algorithm(rve_size_x, rve_size_y,  fiber_radius, exclusion_zones, max_fi
             if all(np.linalg.norm(np.array(new_coordinate) - np.array(existing_fiber)) >= 2 * fiber_radius for existing_fiber in fiber_centers):
 
                 if is_fiber_at_boundary(new_coordinate, fiber_radius, rve_size_x, rve_size_y):
-                    new_fibers = generate_periodic_fibers(new_coordinate, fiber_radius, fiber_centers, periodic_shifts, 
+                    new_fibers = generate_periodic_fibers(new_coordinate, new_radius, fiber_centers, periodic_shifts, 
                                                           tolerance_upper, tolerance_lower)
 
                     if new_fibers:
                         fiber_centers.append(new_coordinate)
                         fiber_types.append("boundary")
+                        fiber_radii.append(new_radius)
                         fiber_count += 1
                         virtual_fiber_count += 1
                         added_fiber = True
@@ -237,11 +253,13 @@ def RSE_algorithm(rve_size_x, rve_size_y,  fiber_radius, exclusion_zones, max_fi
                         for fiber in new_fibers:
                             fiber_centers.append(fiber)
                             fiber_types.append("periodic")
+                            fiber_radii.append(new_radius)
                             virtual_fiber_count += 1
 
                 else:
                     fiber_centers.append(new_coordinate)
                     fiber_types.append("normal")
+                    fiber_radii.append(new_radius)
                     fiber_count += 1
                     virtual_fiber_count += 1
                     added_fiber = True
@@ -253,11 +271,12 @@ def RSE_algorithm(rve_size_x, rve_size_y,  fiber_radius, exclusion_zones, max_fi
             fail_count += 1
 
     original_fibers = [fiber for i, fiber in enumerate(fiber_centers) if fiber_types[i] != "periodic"]
+    original_radii = [fiber_radii[i] for i, fiber in enumerate(fiber_centers) if fiber_types[i] != "periodic"]
 
-    return fiber_centers, fiber_types, fiber_count, virtual_fiber_count, original_fibers
+    return fiber_centers, fiber_types, fiber_radii, fiber_count, virtual_fiber_count, original_fibers, original_radii
 
 
-def RFR_algorithm(fiber_centers, original_fibers, target_fiber_count, fiber_radius, rve_size_x, rve_size_y, periodic_shifts, rng):
+def RFR_algorithm(fiber_centers, fiber_radii, original_fibers, original_radii, target_fiber_count, fiber_radius, fiber_radius_min, fiber_radius_max, rve_size_x, rve_size_y, periodic_shifts, rng):
     """Reduce fiber count to target using Random Fiber Removal (RFR).
 
     Args:
@@ -274,22 +293,27 @@ def RFR_algorithm(fiber_centers, original_fibers, target_fiber_count, fiber_radi
         Tuple of (updated fiber_centers, updated original_fibers).
     """
     updated_original_fibers = original_fibers.copy()
+    updated_original_radii = original_radii.copy()
     fiber_count = len(updated_original_fibers)
 
     while fiber_count > target_fiber_count:
         remove_index = rng.randint(0, len(updated_original_fibers) - 1)
         fiber_to_remove = updated_original_fibers[remove_index]
+        radius_to_remove = updated_original_radii[remove_index]
 
-        if is_fiber_at_boundary(fiber_to_remove, fiber_radius, rve_size_x, rve_size_y):
-            fiber_centers = remove_fiber_with_periodicity(fiber_to_remove, fiber_centers, periodic_shifts)
+        if is_fiber_at_boundary(fiber_to_remove, radius_to_remove, rve_size_x, rve_size_y):
+            fiber_centers, fiber_radii = remove_fiber_with_periodicity(fiber_to_remove, fiber_centers, fiber_radii, periodic_shifts)
             updated_original_fibers = [f for f in updated_original_fibers if not np.allclose(f, fiber_to_remove, atol = 1e-6)]
+            updated_original_radii.pop(remove_index)
         else:
             fiber_centers.remove(fiber_to_remove)
+            fiber_radii.remove(radius_to_remove)
             updated_original_fibers.remove(fiber_to_remove)
+            updated_original_radii.remove(radius_to_remove)
 
         fiber_count -= 1
 
-    return fiber_centers, updated_original_fibers
+    return fiber_centers, fiber_radii, updated_original_fibers
 
 
 # ================================================================
@@ -311,6 +335,8 @@ def main():
     rve_size_x = config.get("rve.rve.size_x")
     rve_size_y = config.get("rve.rve.size_y")
     fiber_radius = config.get("rve.fiber.radius")
+    fiber_radius_min = config.get("rve.fiber.radius_min")
+    fiber_radius_max = config.get("rve.fiber.radius_max")
     periodic_boundary_buffer = config.get("rve.rve.periodic_boundary_buffer")
 
     max_fibers_count = config.get("algorithm.max_fibers_count")
@@ -328,6 +354,8 @@ def main():
     rse_args = dict(rve_size_x = rve_size_x, 
                     rve_size_y = rve_size_y,
                     fiber_radius = fiber_radius,
+                    fiber_radius_min = fiber_radius_min,
+                    fiber_radius_max = fiber_radius_max,
                     exclusion_zones = exclusion_zones,
                     max_fibers_count = max_fibers_count,
                     max_failed_attempts = max_failed_attempts,
@@ -338,6 +366,8 @@ def main():
                     rng = rng)
 
     rfr_args = dict(fiber_radius = fiber_radius,
+                    fiber_radius_min = fiber_radius_min,
+                    fiber_radius_max = fiber_radius_max,
                     rve_size_x = rve_size_x,
                     rve_size_y = rve_size_y,
                     periodic_shifts = periodic_shifts,
@@ -363,19 +393,21 @@ def main():
         total_index = 0
 
         for RSE_index in tqdm(range(1, RSE_variants + 1), desc = f"RSE for VF = {vf_percent}%"):
-            fiber_centers, fiber_types, _, _, original_fibers = RSE_algorithm(**rse_args)
+            fiber_centers, fiber_types,fiber_radii, _, _, original_fibers, original_radii = RSE_algorithm(**rse_args)
 
             for RFR_index in range(1, RFR_variants + 1):
                 total_index += 1
 
-                reduced_fibers, updated_originals = RFR_algorithm(fiber_centers.copy(),
+                reduced_fibers, reduced_radii, updated_originals = RFR_algorithm(fiber_centers.copy(),
+                                                                  fiber_radii.copy(),
                                                                   original_fibers.copy(),
+                                                                  original_radii.copy(),
                                                                   target_fiber_count,
                                                                   **rfr_args)
 
                 file_prefix = config.get("paths.file_naming.fiber_distribution")
                 identifier = f"{file_prefix}_vf{vf_percent}_{total_index}"
-                save_to_csv(reduced_fibers, fiber_radius, csv_dir, identifier)
+                save_to_csv(reduced_fibers, reduced_radii, csv_dir, identifier)
 
                 if enable_plotting and total_index % plot_frequency == 0:
                     plot_comparison(fiber_centers,
