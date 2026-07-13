@@ -124,12 +124,6 @@ def calculate_target_fiber_count(volume_fraction, fiber_radius, rve_size_x, rve_
     return int((volume_fraction * rve_area) / fiber_area)
 
 
-def generate_random_radius(fiber_radius_min, fiber_radius_max, rng, is_first=False):
-    """Generates a random radius within bounds."""
-    if is_first:
-        return (fiber_radius_min + fiber_radius_max) / 2.0
-    else:
-        return rng.uniform(fiber_radius_min, fiber_radius_max)
 
 # ================================================================
 # Input/Output Functions
