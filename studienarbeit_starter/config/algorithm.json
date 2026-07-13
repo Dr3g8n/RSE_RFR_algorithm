@@ -1,0 +1,10 @@
+{
+    "seed": 17,
+    "periodic_boundary_buffer_multiplier": 1.0,
+    "max_failed_attempts": 50,
+    "max_trials_per_fiber": 500,
+    "distance_factors": {
+        "min_distance": 0.07,
+        "max_distance": 0.10
+    }
+}

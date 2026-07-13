@@ -1,0 +1,15 @@
+{
+    "use_specific_targets": false,
+    "volume_fraction_combinations": [
+        {"vf_percent": 60, "RSE_variants": 2, "RFR_variants": 2}
+    ],
+    "specific_target_configurations": [
+        {
+            "vf_percent": 20,
+            "targets": [
+                {"target_index": 1, "RSE_variants": 1, "RFR_variants": 1},
+                {"target_index": 3, "RSE_variants": 1, "RFR_variants": 2}
+            ]
+        }
+    ]
+}

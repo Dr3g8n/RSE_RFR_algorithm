@@ -1,0 +1,13 @@
+# Pflicht (für generate_fiber_distribution.py)
+numpy
+tqdm
+
+# Für Plots
+matplotlib
+pandas
+pyyaml
+
+# Für Mesh-Generierung (generate_vtu_mesh.py, plot_vtu_mesh.py)
+# Erst installieren, sobald du an adaptivem Meshing arbeitest
+gmsh
+meshio

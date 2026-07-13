@@ -1,0 +1,24 @@
+{
+    "base": {
+        "config": "./config",
+        "data": "./data",
+        "src": "./src",
+        "templates": "./templates",
+        "utils": "./utils"
+    },
+    "data": {
+        "csv": "./data/csv",
+        "images": {
+            "fiber_distribution": "./data/images/fiber_distribution",
+            "mesh": "./data/images/mesh",
+            "stress_strain": "./data/images/stress_strain"
+        },
+        "msh": "./data/msh",
+        "vtu": "./data/vtu"
+    },
+    "file_naming": {
+        "fiber_distribution": "rve",
+        "image_rse_rfr": "rse_rfr",
+        "image_mesh": "mesh"
+    }
+}

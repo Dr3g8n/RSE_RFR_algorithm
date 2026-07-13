@@ -1,0 +1,57 @@
+{
+    "name": "2d_rve_stiffness",
+    "templates": [
+        "2d_stiffness_uniaxial_x_pbc.4C.yaml",
+        "2d_stiffness_uniaxial_y_pbc.4C.yaml",
+        "2d_stiffness_pure_shear_xy_pbc.4C.yaml"
+    ],
+    "plot_after_study":    true,
+    "summary_after_study": true,
+    "iterator": {
+        "type": "grid",
+        "grid": {
+            "grid_points": {
+                "rve_size":       10,
+                "realization_id": 20
+            }
+        },
+        "monte_carlo": {"num_samples": 500},
+        "latin_hypercube_sampling": {"num_samples": 100},
+        "sobol": {"num_samples": 1024, "calc_second_order": false, "num_bootstrap_samples": 100, "confidence_level": 0.95}
+    },
+    "parameters": {
+        "rve_size":       {"type": "uniform", "lower":  20.0, "upper": 200.0},
+        "realization_id": {"type": "uniform", "lower":   0.0, "upper":  19.0},
+        "vf_percent":     {"type": "fixed",   "value":  40.0},
+        "fiber_radius":   {"type": "fixed",   "value":   2.6},
+        "young_matrix":   {"type": "fixed",   "value":   4.67},
+        "young_fiber":    {"type": "fixed",   "value":  22.0},
+        "nue_matrix":     {"type": "fixed",   "value":   0.38},
+        "nue_fiber":      {"type": "fixed",   "value":   0.25}
+    },
+    "parameters_1": {
+        "rve_size":       {"type": "uniform", "lower":  20.0, "upper": 200.0},
+        "realization_id": {"type": "uniform", "lower":   0.0, "upper":  19.0},
+        "vf_percent":     {"type": "fixed",   "value":  40.0},
+        "fiber_radius":   {"type": "fixed",   "value":   2.6},
+        "young_matrix":   {"type": "fixed",   "value":   4.67},
+        "young_fiber":    {"type": "fixed",   "value":  22.0},
+        "nue_matrix":     {"type": "fixed",   "value":   0.38},
+        "nue_fiber":      {"type": "fixed",   "value":   0.25}
+    },
+    "parameters_2": {
+        "rve_size":       {"type": "uniform",          "lower": 20.0, "upper": 100.0},
+        "realization_id": {"type": "uniform",          "lower": 0.0,  "upper": 4.0},
+        "vf_percent":     {"type": "uniform",          "lower": 10.0, "upper": 60.0},
+        "fiber_radius":   {"type": "truncated_normal", "unbounded_mean": 2.6,  "unbounded_std": 0.15, "lower": 2.3,  "upper": 2.9},
+        "young_matrix":   {"type": "truncated_normal", "unbounded_mean": 4.67, "unbounded_std": 0.6,  "lower": 2.0,  "upper": 6.5},
+        "young_fiber":    {"type": "truncated_normal", "unbounded_mean": 22.0, "unbounded_std": 4.0,  "lower": 10.0, "upper": 30.0},
+        "nue_matrix":     {"type": "truncated_normal", "unbounded_mean": 0.38, "unbounded_std": 0.04, "lower": 0.30, "upper": 0.45},
+        "nue_fiber":      {"type": "truncated_normal", "unbounded_mean": 0.25, "unbounded_std": 0.04, "lower": 0.15, "upper": 0.35}
+    },
+    "scheduler": {
+        "num_jobs": 200,
+        "num_cpus_per_job": 1,
+        "walltime": "02:00:00"
+    }
+}
