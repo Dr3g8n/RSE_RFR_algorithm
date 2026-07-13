@@ -44,7 +44,7 @@ SAVE_PLOTS = True
 # ================================================================
 # Plotting Function
 # ================================================================
-def plot_comparison(before_centers, before_types, after_centers, fiber_radius,
+def plot_comparison(before_centers, before_types, before_radii, after_centers, after_radii,
                     rve_size_x, rve_size_y, identifier, vf_percent, output_dir = None, show = True):
     """Visualize fibers before (RSE) and after (RFR) removal.
 
@@ -67,7 +67,7 @@ def plot_comparison(before_centers, before_types, after_centers, fiber_radius,
     # Left subplot: RSE Variant (before RFR)
     axs[0].set_title("RSE Variant", pad = TITLE_PADDING, fontsize = FONT_SIZE)
 
-    for fiber, fiber_type in zip(before_centers, before_types):
+    for fiber, fiber_type, fiber_radius in zip(before_centers, before_types, before_radii):
         display_color = FIBER_COLORS[fiber_type]
         axs[0].add_artist(plt.Circle((fiber[0], fiber[1]), fiber_radius, color = display_color, linewidth = 0))
 
@@ -78,7 +78,7 @@ def plot_comparison(before_centers, before_types, after_centers, fiber_radius,
     # Right subplot: RFR Variant (after RFR)
     axs[1].set_title(rf"RFR Variant $\left(V_{{F}} = {vf_percent:.0f}\%\right)$", pad = TITLE_PADDING, fontsize = FONT_SIZE)
 
-    for fiber in after_centers:
+    for fiber, fiber_radius in zip(after_centers, after_radii):
         axs[1].add_artist(plt.Circle((fiber[0], fiber[1]), fiber_radius, color = FIBER_COLORS["rfr"], linewidth = 0))
 
     axs[1].set_xlim([0, rve_size_x])
@@ -153,8 +153,9 @@ def _load_fiber_data(job_dir):
     return {
         "before_centers": rse_df[["x_coordinate", "y_coordinate"]].values.tolist(),
         "before_types":   rse_df["type"].tolist(),
+        "before_radii":   rse_df["radius"].tolist(),
         "after_centers":  rfr_df[["x_coordinate", "y_coordinate"]].values.tolist(),
-        "fiber_radius":   inputs.get("fiber_radius"),
+        "after_radii":    rfr_df["radius"].tolist(),
         "rve_size_x":     rve_size,
         "rve_size_y":     rve_size,
         "identifier":     f"{prefix}_rfr_{job_id:04d}",

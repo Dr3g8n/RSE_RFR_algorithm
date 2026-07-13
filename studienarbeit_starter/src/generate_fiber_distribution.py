@@ -412,8 +412,9 @@ def main():
                 if enable_plotting and total_index % plot_frequency == 0:
                     plot_comparison(fiber_centers,
                                     fiber_types,
+                                    fiber_radii,
                                     reduced_fibers,
-                                    fiber_radius,
+                                    reduced_radii,
                                     rve_size_x,
                                     rve_size_y,
                                     identifier,
