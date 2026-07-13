@@ -1,3 +1,4 @@
+
 {
     "rve": {
         "size_x": 50.0,
@@ -7,7 +8,9 @@
         "dimension": 2
     },
     "fiber": {
-        "radius": 2.6,
+        "radius_min": 3.0,
+        "radius_max": 5.0,
+        "radius": 4.0,
         "radius_with_czm": 0.0
     },
     "boundary_conditions": {
