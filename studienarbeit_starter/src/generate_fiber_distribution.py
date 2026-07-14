@@ -299,16 +299,20 @@ def RFR_algorithm(fiber_centers, fiber_radii, original_fibers, original_radii, t
     """
     updated_original_fibers = original_fibers.copy()
     updated_original_radii = original_radii.copy()
-    fiber_count = len(updated_original_fibers)
+    # Ziel Flaeche berechnen
+    fiber_area_nominal = np.pi * (fiber_radius ** 2)
+    target_area = target_fiber_count * fiber_area_nominal
+    # Live-Berechnung
+    current_area = sum(np.pi * (r ** 2) for r in updated_original_radii)
 
-    while fiber_count > target_fiber_count:
+    while current_area > target_area and len(updated_original_fibers) > 0:
         remove_index = rng.randint(0, len(updated_original_fibers) - 1)
         fiber_to_remove = updated_original_fibers[remove_index]
         radius_to_remove = updated_original_radii[remove_index]
 
         if is_fiber_at_boundary(fiber_to_remove, radius_to_remove, rve_size_x, rve_size_y):
             fiber_centers, fiber_radii = remove_fiber_with_periodicity(fiber_to_remove, fiber_centers, fiber_radii, periodic_shifts)
-            updated_original_fibers = [f for f in updated_original_fibers if not np.allclose(f, fiber_to_remove, atol = 1e-6)]
+            updated_original_fibers = [f for f in updated_original_fibers if not np.allclose(f, fiber_to_remove, atol = 1e-3)]
             updated_original_radii.pop(remove_index)
         else:
             global_index = next(i for i, f in enumerate(fiber_centers) if np.allclose(f, fiber_to_remove, atol=1e-3))
@@ -317,7 +321,7 @@ def RFR_algorithm(fiber_centers, fiber_radii, original_fibers, original_radii, t
             updated_original_fibers.remove(fiber_to_remove)
             updated_original_radii.remove(radius_to_remove)
 
-        fiber_count -= 1
+        current_area = sum(np.pi * (r ** 2) for r in updated_original_radii)
 
     return fiber_centers, fiber_radii, updated_original_fibers
 
