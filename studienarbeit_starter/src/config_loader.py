@@ -61,16 +61,17 @@ class ConfigLoader:
         ]
 
         # Use the larger radius (normal) vs. with CZM layer)
-        fiber_radius = self.config["rve"]["fiber"]["radius"]
+        fiber_radius_max = self.config["rve"]["fiber"]["radius_max"]
         fiber_radius_with_czm = self.config["rve"]["fiber"]["radius_with_czm"]
-        self.config["rve"]["fiber"]["radius"] = max(fiber_radius, fiber_radius_with_czm)
+        safety_radius = max(fiber_radius_max, fiber_radius_with_czm)
+        self.config["rve"]["fiber"]["radius"] = safety_radius
 
         # Buffer zone for periodic boundary fiber copies
         multiplier = self.config["algorithm"]["periodic_boundary_buffer_multiplier"]
-        self.config["rve"]["rve"]["periodic_boundary_buffer"] = multiplier * fiber_radius
+        self.config["rve"]["rve"]["periodic_boundary_buffer"] = multiplier * safety_radius
 
         # Dynamic max fiber count (safety cap for RSE loop)
-        self.config["algorithm"]["max_fibers_count"] = int(1.5 * (size_x * size_y) / (math.pi * fiber_radius**2))
+        self.config["algorithm"]["max_fibers_count"] = int(1.5 * (size_x * size_y) / (math.pi * safety_radius**2))
         
         # Resolve solver name → ID
         solver_name = self.config["rve"]["solver"]["name"]

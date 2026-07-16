@@ -1,0 +1,39 @@
+
+{
+    "rve": {
+        "size_x": 50.0,
+        "size_y": 50.0,
+        "size_z": 50.0,
+        "thickness_2d": 1.0,
+        "dimension": 2
+    },
+    "fiber": {
+        "radius_min": 3.0,
+        "radius_max": 5.0,
+        "radius_with_czm": 0.0
+    },
+    "boundary_conditions": {
+        "strain_percent_target": 1.0
+    },
+    "mesh": {
+        "size_min": 1.0,
+        "size_max": 1.0,
+        "element_order": 1
+    },
+    "materials": {
+        "matrix_id": 1,
+        "fiber_id": 2
+    },
+    "solver": {
+        "name": "umfpack",
+        "max_time": 1.0,
+        "num_steps": 5,
+        "max_iter": 30,
+        "predict": "ConstDis",
+        "mapping": {
+            "umfpack": 1,
+            "superlu": 2,
+            "iterative_gmres": 3
+        }
+    }
+}

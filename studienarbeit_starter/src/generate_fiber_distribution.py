@@ -116,12 +116,12 @@ def count_original_fibers(fiber_centers, fiber_types):
     return sum(1 for ft in fiber_types if ft != "periodic")
 
 
-def calculate_target_fiber_count(volume_fraction, fiber_radius, rve_size_x, rve_size_y):
+def calculate_target_fiber_count(volume_fraction, rve_size_x, rve_size_y):
     """Calculate number of fibers needed for a target volume fraction."""
-    fiber_area = np.pi * (fiber_radius ** 2)
     rve_area = rve_size_x * rve_size_y
+    target_area = volume_fraction * rve_area
 
-    return int((volume_fraction * rve_area) / fiber_area)
+    return target_area
 
 
 
@@ -156,7 +156,7 @@ def save_to_csv(fiber_centers, fiber_radii, csv_dir, identifier, fiber_types = N
 # ================================================================
 # Core Algorithms
 # ================================================================
-def RSE_algorithm(rve_size_x, rve_size_y,  fiber_radius, fiber_radius_min, fiber_radius_max, exclusion_zones, max_fibers_count, max_failed_attempts, 
+def RSE_algorithm(rve_size_x, rve_size_y, fiber_radius_min, fiber_radius_max, exclusion_zones, max_fibers_count, max_failed_attempts, 
                   max_trials_per_fiber, distance_factors, periodic_boundary_buffer, periodic_shifts, rng):
     """Generate initial fiber distribution using Random Sequential Expansion (RSE).
 
@@ -281,7 +281,7 @@ def RSE_algorithm(rve_size_x, rve_size_y,  fiber_radius, fiber_radius_min, fiber
     return fiber_centers, fiber_types, fiber_radii, fiber_count, virtual_fiber_count, original_fibers, original_radii
 
 
-def RFR_algorithm(fiber_centers, fiber_radii, original_fibers, original_radii, target_fiber_count, fiber_radius, fiber_radius_min, fiber_radius_max, rve_size_x, rve_size_y, periodic_shifts, rng):
+def RFR_algorithm(fiber_centers, fiber_radii, original_fibers, original_radii, target_fiber_count, rve_size_x, rve_size_y, periodic_shifts, rng):
     """Reduce fiber count to target using Random Fiber Removal (RFR).
 
     Args:
@@ -300,8 +300,7 @@ def RFR_algorithm(fiber_centers, fiber_radii, original_fibers, original_radii, t
     updated_original_fibers = original_fibers.copy()
     updated_original_radii = original_radii.copy()
     # Ziel Flaeche berechnen
-    fiber_area_nominal = np.pi * (fiber_radius ** 2)
-    target_area = target_fiber_count * fiber_area_nominal
+    target_area = target_fiber_count
     # Live-Berechnung
     current_area = sum(np.pi * (r ** 2) for r in updated_original_radii)
 
@@ -309,6 +308,14 @@ def RFR_algorithm(fiber_centers, fiber_radii, original_fibers, original_radii, t
         remove_index = rng.randint(0, len(updated_original_fibers) - 1)
         fiber_to_remove = updated_original_fibers[remove_index]
         radius_to_remove = updated_original_radii[remove_index]
+        
+        # Vorausschauende Berechnung des Fehlers
+        area_if_removed = current_area - (np.pi * (radius_to_remove ** 2))
+        error_before_removal = abs(current_area - target_area)
+        error_after_removal = abs(area_if_removed - target_area)
+        
+        if error_after_removal > error_before_removal:
+            break
 
         if is_fiber_at_boundary(fiber_to_remove, radius_to_remove, rve_size_x, rve_size_y):
             fiber_centers, fiber_radii = remove_fiber_with_periodicity(fiber_to_remove, fiber_centers, fiber_radii, periodic_shifts)
@@ -344,7 +351,6 @@ def main():
     # Get parameters from config
     rve_size_x = config.get("rve.rve.size_x")
     rve_size_y = config.get("rve.rve.size_y")
-    fiber_radius = config.get("rve.fiber.radius")
     fiber_radius_min = config.get("rve.fiber.radius_min")
     fiber_radius_max = config.get("rve.fiber.radius_max")
     periodic_boundary_buffer = config.get("rve.rve.periodic_boundary_buffer")
@@ -355,7 +361,7 @@ def main():
     distance_factors = config.get("algorithm.distance_factors")
     periodic_shifts = config.get("algorithm.periodic_shifts")
 
-    exclusion_zones = config.get_exclusion_zones(fiber_radius, rve_size_x, rve_size_y)
+    exclusion_zones = config.get_exclusion_zones(fiber_radius_max, rve_size_x, rve_size_y)
 
     csv_dir = config.get("paths.data.csv")
     enable_plotting = True
@@ -363,7 +369,6 @@ def main():
 
     rse_args = dict(rve_size_x = rve_size_x, 
                     rve_size_y = rve_size_y,
-                    fiber_radius = fiber_radius,
                     fiber_radius_min = fiber_radius_min,
                     fiber_radius_max = fiber_radius_max,
                     exclusion_zones = exclusion_zones,
@@ -375,10 +380,7 @@ def main():
                     periodic_shifts = periodic_shifts,
                     rng = rng)
 
-    rfr_args = dict(fiber_radius = fiber_radius,
-                    fiber_radius_min = fiber_radius_min,
-                    fiber_radius_max = fiber_radius_max,
-                    rve_size_x = rve_size_x,
+    rfr_args = dict(rve_size_x = rve_size_x,
                     rve_size_y = rve_size_y,
                     periodic_shifts = periodic_shifts,
                     rng = rng)
@@ -394,7 +396,7 @@ def main():
         print("-" * 60)
 
         # Calculate target fiber count
-        target_fiber_count = calculate_target_fiber_count(vf_decimal, fiber_radius, rve_size_x, rve_size_y)
+        target_fiber_count = calculate_target_fiber_count(vf_decimal, rve_size_x, rve_size_y)
 
         RSE_variants = vf_config["RSE_variants"]
         RFR_variants = vf_config["RFR_variants"]
