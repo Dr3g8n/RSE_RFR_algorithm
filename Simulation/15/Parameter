@@ -1,0 +1,13 @@
+Folgende Parameter wurden verwendet.
+
+rve.json:
+"size_x": 100.0
+"size_y": 100.0
+"size_z": 100.0
+"radius_min": 8.0
+"radius_max": 25.0
+
+target_vfs.json:
+"vf_percent": 60
+"RSE_variants": 5
+"RFR_variants": 2
